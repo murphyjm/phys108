@@ -40,6 +40,8 @@ class DataSheet:
 		self.set_2 = set_2
 		self.set_3 = set_3
 
+		self.combined_set = []
+
 		# Dictionary with the setup parameters for when the data set was taken
 		setup_params = {'srs gain':sheet_data.loc[1, df_label_names['srs gain']], 'distance':sheet_data.loc[1, df_label_names['distance']], 
 		'resistance':sheet_data.loc[1, df_label_names['resistance']], 'flux bias current':sheet_data.loc[1, df_label_names['flux bias current']]}
@@ -48,17 +50,17 @@ class DataSheet:
 
 
 	# Sorts data sheet set by the channel 1 reading
-	def sort_set(data_sheet_set):
+	def sort_set(self, data_sheet_set):
 
 		data_sheet_set = sorted(data_sheet_set, key = lambda x: x[0])
 		return data_sheet_set
 
 	# Combine all three data sets for a single sheet
-	def combine_sets(data_sheet):
+	def combine_sets(self):
 
-		set_1 = data_sheet.set_1
-		set_2 = data_sheet.set_2
-		set_3 = data_sheet.set_3
+		set_1 = self.set_1
+		set_2 = self.set_2
+		set_3 = self.set_3
 
 		combined_set = []
 
@@ -67,14 +69,15 @@ class DataSheet:
 			combined_set.append(set_2[i])
 			combined_set.append(set_3[i])
 
+		self.combined_set = combined_set
 		return combined_set
 
 	# Mean subtract all of the sets of the data sheet object
-	def mean_subtract(data_sheet):
+	def mean_subtract(self):
 
-		set_1 = data_sheet.set_1
-		set_2 = data_sheet.set_2
-		set_3 = data_sheet.set_3
+		set_1 = self.set_1
+		set_2 = self.set_2
+		set_3 = self.set_3
 
 		chan_2_set_1 = np.asarray([x[1] for x in set_1])
 		chan_2_set_2 = np.asarray([x[1] for x in set_2])
@@ -92,7 +95,103 @@ class DataSheet:
 		set_2 = [(x[0], y) for x,y in zip(set_2, chan_2_set_2)]
 		set_3 = [(x[0], y) for x,y in zip(set_3, chan_2_set_3)]
 
-		data_sheet.set_1 = set_1
-		data_sheet.set_2 = set_2
-		data_sheet.set_3 = set_3
+		self.set_1 = set_1
+		self.set_2 = set_2
+		self.set_3 = set_3
+
+	# Average the points of a data set given a window size of number of points
+	def window_avg(self, data_set, n=10):
+
+		avg_data = []
+
+		data_set = self.sort_set(data_set)
+
+		for i in range(0, len(data_set), n):
+
+			curr_sum_x = 0
+			curr_sum_y = 0
+
+			for j in range(n):
+
+				curr_sum_x += data_set[i + j][0]
+				curr_sum_y += data_set[i + j][1]
+
+			avg_x = curr_sum_x / n
+			avg_y = curr_sum_y / n
+
+			avg_data.append((avg_x, avg_y))
+
+		return avg_data
+
+	# Helper function for linear_gnd_trend()
+	# Don't call as a client. Should be private.
+	def find_kink_locs(self, data_set):
+
+		chan_1, chan_2 = list(zip(*data_set))
+
+		chan_2_diffs = np.diff(chan_2)
+		chan_1_diffs = np.diff(chan_1)
+
+		# Take element wise derivative
+		chan_1_diffs = chan_1_diffs + 1e-10 # Padding so we don't divide by zero
+		d_dx = np.divide(chan_2_diffs, chan_1_diffs)
+
+		# np.diff reduces the size of the input array by 1, so just cutoff the first value in the data set
+		#d_dx_set = list(zip(chan_1[1:], d_dx))
+
+		# Find value of the slope in the superconducting region
+
+		# Find the index of the element in chan_1 that is closest to zero
+		idx_zero = (np.abs(chan_1[1:])).argmin()
+
+		super_slope = np.mean(d_dx[idx_zero - 1:idx_zero + 1])
+
+		slopes = d_dx - super_slope
+
+		threshold = 5 * super_slope
+
+		slope_diffs = np.diff(slopes)
+		slope_diffs = np.append(slope_diffs, slope_diffs[-1])
+
+		loc_1 = 0
+		loc_2 = 0
+
+		for i in range(len(slope_diffs)):
+
+			if loc_1 == 0 and slope_diffs[i] >= threshold:
+				loc_1 = i
+
+			if loc_1 != 0 and slope_diffs[i] >= threshold:
+				loc_2 = i
+
+		return loc_1, loc_2
+
+
+	# Computes the linear grounding trend that is seen in the modulation series. Returns a set with it removed and the fit characteristics
+	def linear_gnd_trend(self, data_set):
+
+		loc_1, loc_2 = self.find_kink_locs(data_set)
+
+		chan_1, chan_2 = zip(*data_set)
+
+		chan_1 = np.asarray(chan_1)
+		chan_2 = np.asarray(chan_2)
+
+		chan_1_super = chan_1[loc_1:loc_2]
+		chan_2_super = chan_2[loc_1:loc_2]
+
+		m, b = np.polyfit(chan_1_super, chan_2_super, 1)
+
+		print("Average slope over superconducting region: {}".format((chan_2[loc_2] - chan_2[loc_1])/(chan_1[loc_2] - chan_1[loc_1])))
+
+		print("Polyfit slope over superconducting region: {}".format(m))
+
+		linear_trend = chan_1 * m + b
+
+		chan_2 = chan_2 - linear_trend
+
+		new_set = list(zip(chan_1, chan_2))
+
+		return new_set, m, b, loc_1, loc_2
+
 
