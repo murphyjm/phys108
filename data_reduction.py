@@ -129,48 +129,63 @@ class DataSheet:
 
 		chan_1, chan_2 = list(zip(*data_set))
 
-		chan_2_diffs = np.diff(chan_2)
-		chan_1_diffs = np.diff(chan_1)
+		d_dx_size = 30
+		curr_size = len(data_set)
+
+		window_size = int(curr_size / d_dx_size)
+
+		avg_set = self.window_avg(data_set, n=window_size)
+
+		chan_1_avg, chan_2_avg = list(zip(*avg_set))
+
+		chan_2_diffs = np.diff(chan_2_avg)
+		chan_1_diffs = np.diff(chan_1_avg)
 
 		# Take element wise derivative
 		chan_1_diffs = chan_1_diffs + 1e-10 # Padding so we don't divide by zero
 		d_dx = np.divide(chan_2_diffs, chan_1_diffs)
-
-		# np.diff reduces the size of the input array by 1, so just cutoff the first value in the data set
-		#d_dx_set = list(zip(chan_1[1:], d_dx))
+		#d_dx = np.insert(d_dx, 0, d_dx[0]) # d_dx length will be reduced by 1 so just prepend the first element to it
 
 		# Find value of the slope in the superconducting region
+		idx_zero = np.abs(chan_1_avg).argmin() 
 
-		# Find the index of the element in chan_1 that is closest to zero
-		idx_zero = (np.abs(chan_1[1:])).argmin()
+		super_slope = d_dx[idx_zero]
 
-		super_slope = np.mean(d_dx[idx_zero - 1:idx_zero + 1])
+		slopes = np.divide(d_dx, super_slope) # Normalize the slopes by the size of the slope in the superconducting region
 
-		slopes = d_dx - super_slope
-
-		threshold = 5 * super_slope
+		#threshold = 3 # Should be obvious where the kinks are in the slope
 
 		slope_diffs = np.diff(slopes)
 		slope_diffs = np.append(slope_diffs, slope_diffs[-1])
 
-		loc_1 = 0
-		loc_2 = 0
+		slope_diffs = np.abs(slope_diffs)
 
-		for i in range(len(slope_diffs)):
+		mid_idx = int(len(slope_diffs) / 2.0)
 
-			if loc_1 == 0 and slope_diffs[i] >= threshold:
-				loc_1 = i
+		loc_1 = slope_diffs[0:mid_idx].argmax() + 1
+		loc_2 = slope_diffs[mid_idx:len(slope_diffs)].argmax() + len(slope_diffs[0:mid_idx]) + 1
 
-			if loc_1 != 0 and slope_diffs[i] >= threshold:
-				loc_2 = i
+		# loc_1 = 0
+		# loc_2 = 0
 
-		return loc_1, loc_2
+		# for i in range(len(slope_diffs)):
+
+		# 	if loc_1 == 0 and abs(slope_diffs[i]) >= threshold:
+		# 		loc_1 = i + 1
+
+		# 	if loc_1 != 0 and abs(slope_diffs[i]) >= threshold:
+		# 		loc_2 = i + 1
+
+		chan_1_loc_1 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_1]).argmin()
+		chan_1_loc_2 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_2]).argmin()
+
+		return chan_1_loc_1, chan_1_loc_2, d_dx, idx_zero
 
 
 	# Computes the linear grounding trend that is seen in the modulation series. Returns a set with it removed and the fit characteristics
 	def linear_gnd_trend(self, data_set):
 
-		loc_1, loc_2 = self.find_kink_locs(data_set)
+		loc_1, loc_2, d_dx, idx_zero = self.find_kink_locs(data_set)
 
 		chan_1, chan_2 = zip(*data_set)
 
@@ -192,6 +207,6 @@ class DataSheet:
 
 		new_set = list(zip(chan_1, chan_2))
 
-		return new_set, m, b, loc_1, loc_2
+		return new_set, m, b, loc_1, loc_2, d_dx, idx_zero
 
 
