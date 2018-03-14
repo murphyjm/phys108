@@ -123,90 +123,90 @@ class DataSheet:
 
 		return avg_data
 
-	# Helper function for linear_gnd_trend()
-	# Don't call as a client. Should be private.
-	def find_kink_locs(self, data_set):
+	# # Helper function for linear_gnd_trend()
+	# # Don't call as a client. Should be private.
+	# def find_kink_locs(self, data_set):
 
-		chan_1, chan_2 = list(zip(*data_set))
+	# 	chan_1, chan_2 = list(zip(*data_set))
 
-		d_dx_size = 30
-		curr_size = len(data_set)
+	# 	d_dx_size = 15
+	# 	curr_size = len(data_set)
 
-		window_size = int(curr_size / d_dx_size)
+	# 	window_size = int(curr_size / d_dx_size)
 
-		avg_set = self.window_avg(data_set, n=window_size)
+	# 	avg_set = self.window_avg(data_set, n=window_size)
 
-		chan_1_avg, chan_2_avg = list(zip(*avg_set))
+	# 	chan_1_avg, chan_2_avg = list(zip(*avg_set))
 
-		chan_2_diffs = np.diff(chan_2_avg)
-		chan_1_diffs = np.diff(chan_1_avg)
+	# 	chan_2_diffs = np.diff(chan_2_avg)
+	# 	chan_1_diffs = np.diff(chan_1_avg)
 
-		# Take element wise derivative
-		chan_1_diffs = chan_1_diffs + 1e-10 # Padding so we don't divide by zero
-		d_dx = np.divide(chan_2_diffs, chan_1_diffs)
-		#d_dx = np.insert(d_dx, 0, d_dx[0]) # d_dx length will be reduced by 1 so just prepend the first element to it
+	# 	# Take element wise derivative
+	# 	chan_1_diffs = chan_1_diffs + 1e-10 # Padding so we don't divide by zero
+	# 	d_dx = np.divide(chan_2_diffs, chan_1_diffs)
+	# 	#d_dx = np.insert(d_dx, 0, d_dx[0]) # d_dx length will be reduced by 1 so just prepend the first element to it
 
-		# Find value of the slope in the superconducting region
-		idx_zero = np.abs(chan_1_avg).argmin() 
+	# 	# Find value of the slope in the superconducting region
+	# 	idx_zero = np.abs(chan_1_avg).argmin() 
 
-		super_slope = d_dx[idx_zero]
+	# 	super_slope = d_dx[idx_zero]
 
-		slopes = np.divide(d_dx, super_slope) # Normalize the slopes by the size of the slope in the superconducting region
+	# 	slopes = np.divide(d_dx, super_slope) # Normalize the slopes by the size of the slope in the superconducting region
 
-		#threshold = 3 # Should be obvious where the kinks are in the slope
+	# 	#threshold = 3 # Should be obvious where the kinks are in the slope
 
-		slope_diffs = np.diff(slopes)
-		slope_diffs = np.append(slope_diffs, slope_diffs[-1])
+	# 	slope_diffs = np.diff(slopes)
+	# 	slope_diffs = np.append(slope_diffs, slope_diffs[-1])
 
-		slope_diffs = np.abs(slope_diffs)
+	# 	slope_diffs = np.abs(slope_diffs)
 
-		mid_idx = int(len(slope_diffs) / 2.0)
+	# 	mid_idx = int(len(slope_diffs) / 2.0)
 
-		loc_1 = slope_diffs[0:mid_idx].argmax() + 1
-		loc_2 = slope_diffs[mid_idx:len(slope_diffs)].argmax() + len(slope_diffs[0:mid_idx]) + 1
+	# 	loc_1 = slope_diffs[0:mid_idx].argmax() + 1
+	# 	loc_2 = slope_diffs[mid_idx:len(slope_diffs)].argmax() + len(slope_diffs[0:mid_idx]) + 1
 
-		# loc_1 = 0
-		# loc_2 = 0
+	# 	# loc_1 = 0
+	# 	# loc_2 = 0
 
-		# for i in range(len(slope_diffs)):
+	# 	# for i in range(len(slope_diffs)):
 
-		# 	if loc_1 == 0 and abs(slope_diffs[i]) >= threshold:
-		# 		loc_1 = i + 1
+	# 	# 	if loc_1 == 0 and abs(slope_diffs[i]) >= threshold:
+	# 	# 		loc_1 = i + 1
 
-		# 	if loc_1 != 0 and abs(slope_diffs[i]) >= threshold:
-		# 		loc_2 = i + 1
+	# 	# 	if loc_1 != 0 and abs(slope_diffs[i]) >= threshold:
+	# 	# 		loc_2 = i + 1
 
-		chan_1_loc_1 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_1]).argmin()
-		chan_1_loc_2 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_2]).argmin()
+	# 	chan_1_loc_1 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_1]).argmin()
+	# 	chan_1_loc_2 = np.abs(np.asarray(chan_1) - chan_1_avg[loc_2]).argmin()
 
-		return chan_1_loc_1, chan_1_loc_2, d_dx, idx_zero
+	# 	return chan_1_loc_1, chan_1_loc_2, d_dx, idx_zero
 
 
-	# Computes the linear grounding trend that is seen in the modulation series. Returns a set with it removed and the fit characteristics
-	def linear_gnd_trend(self, data_set):
+	# # Computes the linear grounding trend that is seen in the modulation series. Returns a set with it removed and the fit characteristics
+	# def linear_gnd_trend(self, data_set):
 
-		loc_1, loc_2, d_dx, idx_zero = self.find_kink_locs(data_set)
+	# 	loc_1, loc_2, d_dx, idx_zero = self.find_kink_locs(data_set)
 
-		chan_1, chan_2 = zip(*data_set)
+	# 	chan_1, chan_2 = zip(*data_set)
 
-		chan_1 = np.asarray(chan_1)
-		chan_2 = np.asarray(chan_2)
+	# 	chan_1 = np.asarray(chan_1)
+	# 	chan_2 = np.asarray(chan_2)
 
-		chan_1_super = chan_1[loc_1:loc_2]
-		chan_2_super = chan_2[loc_1:loc_2]
+	# 	chan_1_super = chan_1[loc_1:loc_2]
+	# 	chan_2_super = chan_2[loc_1:loc_2]
 
-		m, b = np.polyfit(chan_1_super, chan_2_super, 1)
+	# 	m, b = np.polyfit(chan_1_super, chan_2_super, 1)
 
-		print("Average slope over superconducting region: {}".format((chan_2[loc_2] - chan_2[loc_1])/(chan_1[loc_2] - chan_1[loc_1])))
+	# 	print("Average slope over superconducting region: {}".format((chan_2[loc_2] - chan_2[loc_1])/(chan_1[loc_2] - chan_1[loc_1])))
 
-		print("Polyfit slope over superconducting region: {}".format(m))
+	# 	print("Polyfit slope over superconducting region: {}".format(m))
 
-		linear_trend = chan_1 * m + b
+	# 	linear_trend = chan_1 * m + b
 
-		chan_2 = chan_2 - linear_trend
+	# 	chan_2 = chan_2 - linear_trend
 
-		new_set = list(zip(chan_1, chan_2))
+	# 	new_set = list(zip(chan_1, chan_2))
 
-		return new_set, m, b, loc_1, loc_2, d_dx, idx_zero
+	# 	return new_set, m, b, loc_1, loc_2, d_dx, idx_zero
 
 
