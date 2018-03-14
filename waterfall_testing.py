@@ -10,17 +10,17 @@ eps = 0.2
 #Now I should have a numpy array of ordered pairs, mod_DataSheets
 fig = plt.figure(facecolor='k')
 ax = fig.add_subplot(111, axisbg='k')
-n_sets, n_curves = 20, 100
-x = np.linspace(0,1,20)
+n_sets, n_curves = len(mod_DataSheets), 100
+x = np.linspace(0,1,n_sets)
 
 def matching_volt(volt, temp_sheet):
-    #array will have 3000 pts, we want to loop through and find the first matching voltage
+    #array will have 100 pts, we want to loop through and find the first matching voltage
     temp_set = temp_sheet.combined_set
     for i in range(len(temp_set)):
         temp_volt, sig = temp_set[i]
         if (temp_volt > volt - eps and temp_volt < volt + eps) : 
             return sig
-    #return 0
+    print("didn't find one")
     
 def create_curves(n_sets, n_curves, mod_DataSheets):
     output_array = np.zeros((n_curves, n_sets))
@@ -37,7 +37,7 @@ def create_curves(n_sets, n_curves, mod_DataSheets):
             y[j] = matching_volt(volt, temp_sheet)
         output_array[i] = y
     
-    #output a size 100 array of (20 pt y arrays)
+    #output a size 100 array of (n_sets pts arrays)
     return output_array
 
 #plot
@@ -45,8 +45,8 @@ for i in range(n_curves):
     offset = (n_curves-i)*0.1
     output = create_curves(n_sets,n_curves, mod_DataSheets)
     current_curve = output[i]
-    ax.plot(x, current_curve + offset, 'w', lw=2, zorder=100000*(i -1))
-    ax.fill_between(x, current_curve + offset, offset, facecolor='k', lw=0, zorder= 10000*(i -1) -1)
+    ax.plot(x, current_curve + offset, 'w', lw=1.5)
+    ax.fill_between(x, current_curve + offset, offset, facecolor='k', lw=0)
 plt.show()
 
 
